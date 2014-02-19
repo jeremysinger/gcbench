@@ -1,6 +1,7 @@
 // This is adapted from a benchmark written by John Ellis and Pete Kovac
 // of Post Communications.
 // It was modified by Hans Boehm of Silicon Graphics.
+// @jsinger modifications for multi-threading: Feb 2014
 //
 // 	This is no substitute for real applications.  No actual application
 //	is likely to behave in exactly this way.  However, this benchmark was
@@ -36,8 +37,6 @@
 //	commercial Java implementations seriously attempt to minimize GC pause
 //	times.
 
-import java.applet.*;
-
 class Node {
 	Node left, right;
 	int i, j;
@@ -45,7 +44,7 @@ class Node {
 	Node() { }
 }
 
-public class GCBench extends Applet {
+public class GCBench {
 
 	public static final int kStretchTreeDepth    = 18;	// about 16Mb
 	public static final int kLongLivedTreeDepth  = 16;  // about 4Mb
@@ -123,12 +122,7 @@ public class GCBench extends Applet {
 		
 	}
 
-	public void stop()
-    	{
-    	    System.exit(1);
-    	}
-
-	public void start() {
+	public static void main(String [] args) {
 		Node	root;
 		Node	longLivedTree;
 		Node	tempTree;
@@ -136,7 +130,7 @@ public class GCBench extends Applet {
 		long	tElapsed;
 
 
-		showStatus("Garbage Collector Test");
+		System.out.println("Garbage Collector Test");
 		System.out.println(
 			" Stretching memory with a binary tree of depth "
 			+ kStretchTreeDepth);
