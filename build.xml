@@ -32,9 +32,12 @@
           description="generate the distribution" >
     <!-- Create the distribution directory -->
     <mkdir dir="${dist.dir}"/>
-
+    
     <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
-    <jar jarfile="${dist.dir}/gcbench-${DSTAMP}.jar" basedir="${build.dir}"/>
+    <jar jarfile="${dist.dir}/gcbench-${DSTAMP}.jar" basedir="${build.dir}">
+      <!-- package Apache CLI into uberjar -->
+      <zipgroupfileset dir="lib" includes="*.jar"/>
+    </jar>
   </target>
   
   <target name="clean"
