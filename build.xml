@@ -42,6 +42,9 @@
     <!-- Delete the ${build} and ${dist} directory trees -->
     <delete dir="${build.dir}"/>
     <delete dir="${dist.dir}"/>
+    <delete>
+      <fileset defaultexcludes="no" dir="." includes="**/*~"/>
+    </delete>
   </target>
 
 
