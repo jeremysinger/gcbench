@@ -6,6 +6,7 @@
   <property name="build.dir" location="build"/>
   <property name="dist.dir"  location="dist"/>
   <property name="lib.dir"  location="lib"/>
+  <property name="main.class"  value="GCBenchMT"/>
 
   <path id="libs">
     <fileset dir="${lib.dir}">
@@ -37,6 +38,9 @@
     <jar jarfile="${dist.dir}/gcbench-${DSTAMP}.jar" basedir="${build.dir}">
       <!-- package Apache CLI into uberjar -->
       <zipgroupfileset dir="lib" includes="*.jar"/>
+      <manifest>
+        <attribute name="Main-Class" value="${main.class}"/>
+      </manifest>
     </jar>
   </target>
   
