@@ -71,14 +71,14 @@ public class GCBenchMT {
     Option help = new Option("help", "print this message");
     Option version = new Option("version",
                                 "print the version information and exit");
-    Option numThreadsOption = OptionBuilder.withArgName("numThreads")
+    Option numThreads = OptionBuilder.withArgName("numThreads")
       .hasArg()
       .withDescription("number of threads allocating data ")
-      .create("numThreadsOption");
+      .create("numThreads");
     
     options.addOption(help);
     options.addOption(version);
-    options.addOption(numThreadsOption);
+    options.addOption(numThreads);
 
     CommandLineParser parser = new GnuParser();
     CommandLine line = null;
@@ -103,10 +103,10 @@ public class GCBenchMT {
       System.exit(0);
     }
 
-    int numThreads = 1;
+    int n = 1;
     if (line.hasOption("numThreads")) {
       try {
-        numThreads = Integer.parseInt(line.getOptionValue("numThreads"));
+        n = Integer.parseInt(line.getOptionValue("numThreads"));
       }
       catch(NumberFormatException e) {
         System.err.println("unable to parse numThreads parameter: " + line.getOptionValue("numThreads"));
@@ -114,7 +114,7 @@ public class GCBenchMT {
     }
     
     
-    GCBenchMT gcb = new GCBenchMT(numThreads);
+    GCBenchMT gcb = new GCBenchMT(n);
     gcb.start();
   } // main()
 
