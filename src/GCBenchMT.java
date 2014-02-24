@@ -6,11 +6,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.ParseException;;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.HelpFormatter;
+
+
 /**
  * a multi-threaded implementation of Java GCBench,
  * for testing on NUMA machines
  */
 public class GCBenchMT {
+
+  public static String VERSION = "0.01";
   
   /**
    * number of concurrent GC worker threads
@@ -54,7 +66,63 @@ public class GCBenchMT {
   }
 
   public static void main(String [] args) {
-    GCBenchMT gcb = new GCBenchMT(2);
+    // command line option parsing (Apache CLI library)
+    Options options = new Options();
+    Option help = new Option("help", "print this message");
+    Option version = new Option("version",
+                                "print the version information and exit");
+    Option numThreadsOption = OptionBuilder.withArgName("numThreads")
+      .hasArg()
+      .withDescription("number of threads allocating data ")
+      .create("numThreadsOption");
+    
+    options.addOption(help);
+    options.addOption(version);
+    options.addOption(numThreadsOption);
+
+    CommandLineParser parser = new GnuParser();
+    CommandLine line = null;
+    try {
+      // parse the command line arguments
+      line = parser.parse(options, args);
+    }
+    catch(ParseException pe) {
+      // oops, something went wrong
+      System.err.println("Parsing failed.  Reason: " + pe.getMessage());
+      System.exit(-1);
+    }
+
+    if (line.hasOption("help")) {
+      HelpFormatter formatter = new HelpFormatter();
+      formatter.printHelp("GCBenchMT", options);
+      System.exit(0);
+    }
+
+    if (line.hasOption("version")) {
+      printVersion();
+      System.exit(0);
+    }
+
+    int numThreads = 1;
+    if (line.hasOption("numThreads")) {
+      try {
+        numThreads = Integer.parseInt(line.getOptionValue("numThreads"));
+      }
+      catch(NumberFormatException e) {
+        System.err.println("unable to parse numThreads parameter: " + line.getOptionValue("numThreads"));
+      }
+    }
+    
+    
+    GCBenchMT gcb = new GCBenchMT(numThreads);
     gcb.start();
+  } // main()
+
+  /**
+   * print version of program to stderr
+   * (invoke with -version option on CLI)
+   */
+  public static void printVersion() {
+    System.err.printf("GCBench v%s\n", VERSION);
   }
 }
