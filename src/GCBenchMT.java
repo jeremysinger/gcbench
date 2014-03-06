@@ -22,7 +22,19 @@ import org.apache.commons.cli.HelpFormatter;
  */
 public class GCBenchMT {
 
+  /**
+   * benchmark version (for -version flag)
+   */
   public static String VERSION = "0.01";
+
+  /**
+   * pointers to long-lived data structures,
+   * only for -remoteMem flag.
+   * (share array between all threads)
+   */
+  public Node [] longLivedTrees;
+
+  private boolean enableRemoteMem;
   
   /**
    * number of concurrent GC worker threads
@@ -30,16 +42,62 @@ public class GCBenchMT {
    */
   private int numThreads;
 
-  public GCBenchMT(int numThreads) {
+  public GCBenchMT(int numThreads, boolean enableRemoteMem) {
     this.numThreads = numThreads;
+    this.enableRemoteMem = enableRemoteMem;
+    // init LongLivedTrees array in here!
+    if (enableRemoteMem) {
+      longLivedTrees = new Node[numThreads];
+    }
+    else {
+      longLivedTrees = null;
+    }
   }
 
   public void start() {
+    
+    if (enableRemoteMem) {
+      System.out.println("allocating shared data structure...");
+      LongLivedRunner [] llRunners = new LongLivedRunner[numThreads];
+      for (int i=0; i<numThreads; i++) {
+        LongLivedRunner l = new LongLivedRunner(i, longLivedTrees);
+        llRunners[i] = l;
+      }
+
+      ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+      for (LongLivedRunner l : llRunners) {
+        executor.execute(l);
+      }
+
+      executor.shutdown();
+      // Wait until all threads finish
+      try {
+        // Wait a while for existing tasks to terminate
+        if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+          executor.shutdownNow(); // Cancel currently executing tasks
+          // Wait a while for tasks to respond to being cancelled
+          if (!executor.awaitTermination(60, TimeUnit.SECONDS))
+            System.err.println("Pool did not terminate");
+        }
+      } catch (InterruptedException ie) {
+        // (Re-)Cancel if current thread also interrupted
+        executor.shutdownNow();
+        // Preserve interrupt status
+        Thread.currentThread().interrupt();
+      }
+      System.out.println("[harness] Finished all threads");
+    } // if (enableRemoteMem)
+
     GCBenchRunner [] runners= new GCBenchRunner[numThreads];
     for (int i=0; i<numThreads; i++) {
       GCBenchRunner r = new GCBenchRunner(i);
       runners[i] = r;
     }
+
+    // initialize longLivedTrees data structure here
+
+    // - one tree per runner (using Populate() method)
+    // - then switch child nodes around, recursively.
 
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     for (GCBenchRunner r : runners) {
@@ -75,10 +133,13 @@ public class GCBenchMT {
       .hasArg()
       .withDescription("number of threads allocating data ")
       .create("numThreads");
+    Option remoteMem = new Option("remoteMem",
+                                  "enable aggressive remote memory allocations");
     
     options.addOption(help);
     options.addOption(version);
     options.addOption(numThreads);
+    options.addOption(remoteMem);
 
     CommandLineParser parser = new GnuParser();
     CommandLine line = null;
@@ -103,6 +164,12 @@ public class GCBenchMT {
       System.exit(0);
     }
 
+    boolean useRemoteMem = false;
+    if (line.hasOption("remoteMem")) {
+      System.out.println("enabling remote mem data structures");
+      useRemoteMem = true;
+    }
+
     int n = 1;
     if (line.hasOption("numThreads")) {
       try {
@@ -113,8 +180,8 @@ public class GCBenchMT {
       }
     }
     
-    
-    GCBenchMT gcb = new GCBenchMT(n);
+    boolean enableRemoteMem;
+    GCBenchMT gcb = new GCBenchMT(n, useRemoteMem);
     gcb.start();
   } // main()
 
