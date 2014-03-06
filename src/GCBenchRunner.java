@@ -42,10 +42,21 @@ public class GCBenchRunner implements Runnable {
   /**
    * unique id number for this GCBenchRunner thread
    */
-  public int id;
+  private int id;
+
+  /**
+   * should this thread allocate some
+   * long-lived data locally?
+   */
+  private boolean localLongLivedData;
 
   public GCBenchRunner(int id) {
+    this(id, true);
+  }
+
+  public GCBenchRunner(int id, boolean localLongLivedData) {
     this.id = id;
+    this.localLongLivedData = localLongLivedData;
   }
 
 	public static final int kStretchTreeDepth    = 18;	// about 16Mb
@@ -57,11 +68,11 @@ public class GCBenchRunner implements Runnable {
         @Override
 	public void run() {
 		Node	root;
-		Node	longLivedTree;
+		Node	longLivedTree = null; // for local long-lived data
 		Node	tempTree;
 		long	tStart, tFinish;
 		long	tElapsed;
-
+                double [] array = null; // for local long-lived data
 
 		output("Garbage Collector Test");
 		output(
@@ -74,32 +85,40 @@ public class GCBenchRunner implements Runnable {
 		tempTree = GCBench.MakeTree(kStretchTreeDepth);
 		tempTree = null;
 
-		// Create a long lived object
-		output(
-			" Creating a long-lived binary tree of depth " +
-  			kLongLivedTreeDepth);
-		longLivedTree = new Node();
-		GCBench.Populate(kLongLivedTreeDepth, longLivedTree);
-
-		// Create long-lived array, filling half of it
-		output(
-                        " Creating a long-lived array of "
-			+ kArraySize + " doubles");
-		double array[] = new double[kArraySize];
-		for (int i = 0; i < kArraySize/2; ++i) {
-			array[i] = 1.0/i;
-		}
+                if (this.localLongLivedData) {
+                  // Create a long lived object
+                  output(
+                         " Creating a long-lived binary tree of depth " +
+                         kLongLivedTreeDepth);
+                  longLivedTree = new Node();
+                  GCBench.Populate(kLongLivedTreeDepth, longLivedTree);
+                  
+                  // Create long-lived array, filling half of it
+                  output(
+                         " Creating a long-lived array of "
+                         + kArraySize + " doubles");
+                  array = new double[kArraySize];
+                  for (int i = 0; i < kArraySize/2; ++i) {
+                    array[i] = 1.0/i;
+                  }
+                }
+                
 		GCBench.PrintDiagnostics();
-
+                
+                // now allocate local short-lived data
+                
 		for (int d = kMinTreeDepth; d <= kMaxTreeDepth; d += 2) {
-			GCBench.TimeConstruction(d);
+                  GCBench.TimeConstruction(d);
 		}
-
-		if (longLivedTree == null || array[1000] != 1.0/1000)
-			output("Failed");
-					// fake reference to LongLivedTree
-					// and array
-					// to keep them from being optimized away
+                
+                
+                if (this.localLongLivedData) {
+                  if (longLivedTree == null || array[1000] != 1.0/1000)
+                    output("Failed");
+                  // fake reference to LongLivedTree
+                  // and array
+                  // to keep them from being optimized away
+                }
 
 		tFinish = System.currentTimeMillis();
 		tElapsed = tFinish-tStart;

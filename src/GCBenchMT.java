@@ -86,11 +86,12 @@ public class GCBenchMT {
         Thread.currentThread().interrupt();
       }
       System.out.println("[harness] Finished all threads");
+      System.out.println("Finished allocating shared data structure.");
     } // if (enableRemoteMem)
 
     GCBenchRunner [] runners= new GCBenchRunner[numThreads];
     for (int i=0; i<numThreads; i++) {
-      GCBenchRunner r = new GCBenchRunner(i);
+      GCBenchRunner r = new GCBenchRunner(i, !enableRemoteMem);
       runners[i] = r;
     }
 
