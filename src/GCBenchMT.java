@@ -6,6 +6,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import java.util.ArrayList;
+import java.util.Stack;
+
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
@@ -42,15 +45,26 @@ public class GCBenchMT {
    */
   private int numThreads;
 
+  /**
+   * pool (per thread) of Nodes to store
+   * in longLivedData - use for remoteMem
+   */
+  private ArrayList<Stack<Node>> pools;
+
   public GCBenchMT(int numThreads, boolean enableRemoteMem) {
     this.numThreads = numThreads;
     this.enableRemoteMem = enableRemoteMem;
     // init LongLivedTrees array in here!
     if (enableRemoteMem) {
       longLivedTrees = new Node[numThreads];
+      pools = new ArrayList<Stack<Node>>();
+      for (int i=0; i<numThreads; i++) {
+        pools.add(i, new Stack<Node>());
+      }
     }
     else {
       longLivedTrees = null;
+      pools = null;
     }
   }
 
@@ -60,8 +74,8 @@ public class GCBenchMT {
       System.out.println("allocating shared data structure...");
       LongLivedRunner [] llRunners = new LongLivedRunner[numThreads];
       for (int i=0; i<numThreads; i++) {
-        LongLivedRunner l = new LongLivedRunner(i, longLivedTrees);
-        llRunners[i] = l;
+        // allocate single nodes into thread-local pools
+        LongLivedRunner l = new LongLivedRunner(i, pools.get(i));
       }
 
       ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -87,6 +101,16 @@ public class GCBenchMT {
       }
       System.out.println("[harness] Finished all threads");
       System.out.println("Finished allocating shared data structure.");
+
+      System.out.println("About to shuffle pointers between thread-local data structures...");
+
+      // iterate over each depth of tree
+      // at each depth, make all nodes in trees[i] point to nodes in trees[i+1]
+      
+
+      System.out.println("Finished shuffling pointers between thread-local data structures.");
+
+      
     } // if (enableRemoteMem)
 
     GCBenchRunner [] runners= new GCBenchRunner[numThreads];
@@ -123,6 +147,32 @@ public class GCBenchMT {
     }
     System.out.println("[harness] Finished all threads");
   }
+
+  
+  // Build tree bottom-up, with
+  // nodes at each level from a different thread allocation pool
+  public Node MakeRemoteTree(int iDepth, int currentPool) {
+    Node n = getNewNodeFromPool(currentPool);
+    if (iDepth>0) {
+      n.left = MakeRemoteTree(iDepth-1, nextPool(currentPool));
+      n.right = MakeRemoteTree(iDepth-1, nextPool(currentPool));
+    }
+    return n;
+  }
+
+  public Node getNewNodeFromPool(int pool) {
+    // return node from the indexed pool (list)
+    return pools.get(pool).pop();
+  }
+
+  /**
+   * which pool should we use for the next level of
+   * allocation depth? (rotate round all pools in order)
+   */
+  public int nextPool(int pool) {
+    return (pool+1)%this.numThreads;
+  }
+
 
   public static void main(String [] args) {
     // command line option parsing (Apache CLI library)
