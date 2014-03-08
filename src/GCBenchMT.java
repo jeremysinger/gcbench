@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 import java.util.ArrayList;
 import java.util.Stack;
+import java.util.Random;
 
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.Option;
@@ -107,7 +108,10 @@ public class GCBenchMT {
 
       // iterate over each depth of tree
       // at each depth, make all nodes in trees[i] point to nodes in trees[i+1]
-      
+      for (int i=0; i<numThreads; i++) {
+        Node remoteTree = MakeRemoteTree(GCBench.kLongLivedTreeDepth, i);
+        longLivedTrees[i] = remoteTree;
+      }
 
       System.out.println("Finished shuffling pointers between thread-local data structures.");
 
@@ -147,6 +151,16 @@ public class GCBenchMT {
       Thread.currentThread().interrupt();
     }
     System.out.println("[harness] Finished all threads");
+
+    if (this.enableRemoteMem) {
+      Random rng = new Random();
+      int r = rng.nextInt(numThreads);
+      if (longLivedTrees[r] == null)
+        System.out.println("Failed");
+      // fake reference to longLivedTrees
+      // to keep them from being optimized away
+    }
+
   }
 
   
