@@ -22,40 +22,52 @@ import org.apache.commons.cli.HelpFormatter;
 
 /**
  * a multi-threaded implementation of Java GCBench,
- * for testing on NUMA machines
+ * for testing GC performance on NUMA machines
  */
 public class GCBenchMT {
 
   /**
    * benchmark version (for -version flag)
    */
-  public static String VERSION = "0.01";
+  public static String VERSION = "0.02";
 
   /**
    * pointers to long-lived data structures,
    * only for -remoteMem flag.
-   * (share array between all threads)
+   * (global array across all threads)
    */
   public Node [] longLivedTrees;
 
+  /**
+   * if true, we fill the longLivedTrees data
+   * structure with node trees that have
+   * cross-NUMA-region pointers.
+   * set using -remoteMem command line option.
+   */
   private boolean enableRemoteMem;
   
   /**
    * number of concurrent GC worker threads
-   * to run
+   * to run.
+   * set using -numThreads N command line option.
    */
   private int numThreads;
 
   /**
-   * pool (per thread) of Nodes to store
-   * in longLivedData - use for remoteMem
+   * pool (per thread) of Node objects to use
+   * when constructing data for
+   * longLivedTrees - use for remoteMem
    */
   private ArrayList<Stack<Node>> pools;
 
+  /**
+   * main constructor
+   */
   public GCBenchMT(int numThreads, boolean enableRemoteMem) {
     this.numThreads = numThreads;
     this.enableRemoteMem = enableRemoteMem;
-    // init LongLivedTrees array in here!
+    // init LongLivedTrees array if necessary
+    // and Node pools
     if (enableRemoteMem) {
       longLivedTrees = new Node[numThreads];
       pools = new ArrayList<Stack<Node>>();
@@ -69,10 +81,26 @@ public class GCBenchMT {
     }
   }
 
+  /**
+   * sets up global data structures and 
+   * orchestrates execution of parallel
+   * worker threads.
+   * Three phases:
+   * 1) LongLivedRunner threads create pools
+   *    of thread-local Node objects
+   * 2) generate global trees with cross-NUMA-region
+   *    pointers
+   * 3) GCBenchRunner threads exercise the GC
+   *    with thread-local short- and long-lived 
+   *    data structures.
+   * Phases 1 and 2 only enabled for remoteMem
+   * option. Phase 3 always executes.
+   */
   public void start() {
     
     if (enableRemoteMem) {
-      System.out.println("allocating shared data structure...");
+      // phase 1
+      System.out.println("Allocating Node object pools");
       LongLivedRunner [] llRunners = new LongLivedRunner[numThreads];
       for (int i=0; i<numThreads; i++) {
         // allocate single nodes into thread-local pools
@@ -101,9 +129,9 @@ public class GCBenchMT {
         // Preserve interrupt status
         Thread.currentThread().interrupt();
       }
-      System.out.println("[harness] Finished all threads");
-      System.out.println("Finished allocating shared data structure.");
+      System.out.println("Finished allocating Node object pools");
 
+      // phase 2
       System.out.println("About to shuffle pointers between thread-local data structures...");
 
       // iterate over each depth of tree
@@ -118,16 +146,12 @@ public class GCBenchMT {
       
     } // if (enableRemoteMem)
 
+    // phase 3
     GCBenchRunner [] runners= new GCBenchRunner[numThreads];
     for (int i=0; i<numThreads; i++) {
       GCBenchRunner r = new GCBenchRunner(i, !enableRemoteMem);
       runners[i] = r;
     }
-
-    // initialize longLivedTrees data structure here
-
-    // - one tree per runner (using Populate() method)
-    // - then switch child nodes around, recursively.
 
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     for (GCBenchRunner r : runners) {
@@ -163,9 +187,12 @@ public class GCBenchMT {
 
   }
 
-  
-  // Build tree bottom-up, with
-  // nodes at each level from a different thread allocation pool
+  /**
+   * builds a tree bottom-up, with
+   * nodes at each level from a different 
+   * thread allocation pool to induce lots
+   * of cross-NUMA-region pointers
+   */
   public Node MakeRemoteTree(int iDepth, int currentPool) {
     Node n = getNewNodeFromPool(currentPool);
     if (iDepth>0) {
@@ -175,6 +202,11 @@ public class GCBenchMT {
     return n;
   }
 
+  /**
+   * fetch a pre-allocated Node
+   * instance from the specified
+   * thread-local pool
+   */
   public Node getNewNodeFromPool(int pool) {
     // return node from the indexed pool (list)
     return pools.get(pool).pop();
@@ -182,13 +214,18 @@ public class GCBenchMT {
 
   /**
    * which pool should we use for the next level of
-   * allocation depth? (rotate round all pools in order)
+   * allocation depth? (rotate round all pools in 
+   * round-robin order)
    */
   public int nextPool(int pool) {
     return (pool+1)%this.numThreads;
   }
 
-
+  /**
+   * entry point for GCBenchMT - parses
+   * command line options then instantiates
+   * object of this type.
+   */
   public static void main(String [] args) {
     // command line option parsing (Apache CLI library)
     Options options = new Options();
