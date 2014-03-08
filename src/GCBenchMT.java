@@ -76,6 +76,7 @@ public class GCBenchMT {
       for (int i=0; i<numThreads; i++) {
         // allocate single nodes into thread-local pools
         LongLivedRunner l = new LongLivedRunner(i, pools.get(i));
+        llRunners[i] = l;
       }
 
       ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -231,7 +232,6 @@ public class GCBenchMT {
       }
     }
     
-    boolean enableRemoteMem;
     GCBenchMT gcb = new GCBenchMT(n, useRemoteMem);
     gcb.start();
   } // main()
