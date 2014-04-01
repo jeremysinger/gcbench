@@ -29,7 +29,7 @@ public class GCBenchMT {
   /**
    * benchmark version (for -version flag)
    */
-  public static String VERSION = "0.02";
+  public static String VERSION = "0.03";
 
   /**
    * pointers to long-lived data structures,
@@ -37,6 +37,11 @@ public class GCBenchMT {
    * (global array across all threads)
    */
   public Node [] longLivedTrees;
+
+  public static Node longLivedPointer0;
+  public static Node longLivedPointer1;
+  public static Node longLivedPointer2;
+  public static Node longLivedPointer3;
 
   /**
    * if true, we fill the longLivedTrees data
@@ -53,12 +58,23 @@ public class GCBenchMT {
    */
   private int numThreads;
 
+  public int getNumThreads() {
+    return this.numThreads;
+  }
+
   /**
    * pool (per thread) of Node objects to use
    * when constructing data for
    * longLivedTrees - use for remoteMem
    */
   private ArrayList<Stack<Node>> pools;
+
+  /**
+   * distance between consecutively sampled
+   * pools - make this larger to get more cross-NUMA
+   * region pointers
+   */
+  public static final int POOL_STRIDE = 9;
 
   /**
    * main constructor
@@ -149,7 +165,7 @@ public class GCBenchMT {
     // phase 3
     GCBenchRunner [] runners= new GCBenchRunner[numThreads];
     for (int i=0; i<numThreads; i++) {
-      GCBenchRunner r = new GCBenchRunner(i, !enableRemoteMem);
+      GCBenchRunner r = new GCBenchRunner(i, !enableRemoteMem, this);
       runners[i] = r;
     }
 
@@ -218,7 +234,7 @@ public class GCBenchMT {
    * round-robin order)
    */
   public int nextPool(int pool) {
-    return (pool+1)%this.numThreads;
+    return (pool+POOL_STRIDE)%this.numThreads;
   }
 
   /**

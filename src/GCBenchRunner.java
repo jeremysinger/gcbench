@@ -37,6 +37,8 @@
 //	commercial Java implementations seriously attempt to minimize GC pause
 //	times.
 
+import java.util.Random;
+
 public class GCBenchRunner implements Runnable {
 
   /**
@@ -50,13 +52,20 @@ public class GCBenchRunner implements Runnable {
    */
   private boolean localLongLivedData;
 
+  /**
+   * harness for multi-threaded 
+   * GCBench execution
+   */
+  private GCBenchMT harness;
+
   public GCBenchRunner(int id) {
-    this(id, true);
+    this(id, true, null);
   }
 
-  public GCBenchRunner(int id, boolean localLongLivedData) {
+  public GCBenchRunner(int id, boolean localLongLivedData, GCBenchMT harness) {
     this.id = id;
     this.localLongLivedData = localLongLivedData;
+    this.harness = harness;
   }
 
 	public static final int kStretchTreeDepth    = 18;	// about 16Mb
@@ -109,6 +118,20 @@ public class GCBenchRunner implements Runnable {
                 
 		for (int d = kMinTreeDepth; d <= kMaxTreeDepth; d += 2) {
                   GCBench.TimeConstruction(d);
+
+                  // @jsinger
+                  // shuffle long-lived pointers here
+                  // (from harness-allocated data - change its
+                  // static pointers)
+                  Random rng = new Random();
+                  int r0 = rng.nextInt(harness.getNumThreads());
+                  int r1 = rng.nextInt(harness.getNumThreads());
+                  int r2 = rng.nextInt(harness.getNumThreads());
+                  int r3 = rng.nextInt(harness.getNumThreads());
+                  GCBenchMT.longLivedPointer0 = harness.longLivedTrees[r0];
+                  GCBenchMT.longLivedPointer1 = harness.longLivedTrees[r1];
+                  GCBenchMT.longLivedPointer2 = harness.longLivedTrees[r2];
+                  GCBenchMT.longLivedPointer3 = harness.longLivedTrees[r3];
 		}
                 
                 
